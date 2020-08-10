@@ -21,6 +21,7 @@ import {
   StatHelpText,
   StatNumber,
   Stat,
+  Input,
 } from "@chakra-ui/core";
 import LoadingTacos from "../components/LoadingTacos";
 import { Global } from "@emotion/core";
@@ -234,7 +235,7 @@ const Crowdsale = () => {
         <Text fontFamily="primary" fontSize={"lg"}>
           ETH AMOUNT TO BUY
         </Text>
-        <input placeholder={"0.1 to 2"} type="text" onChange={handleAmountToBuyInput} />
+        <Input placeholder={"0.1 to 2"} type="text" onChange={handleAmountToBuyInput} autoFocus focusBorderColor="pink.400"/>
         <br />
         <div>
           Total Raised: {weiRaised} of {hardcap} ETH
