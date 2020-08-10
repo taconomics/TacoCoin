@@ -84,6 +84,7 @@ function useInterval(callback: Function, delay: number) {
 const Crowdsale = () => {
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [isFetching, setIsFetching] = React.useState<boolean>(false);
+  const [isFetchingFirstTime, setIsFetchingFirstTime] = React.useState<boolean>(true);
   const [isPurchasing, setIsPurchasing] = React.useState<boolean>(false);
 
   const [provider, setProvider] = React.useState<ethers.providers.Web3Provider>(null);
@@ -153,6 +154,7 @@ const Crowdsale = () => {
       setLiquidityLocked(await tacosCrowdsale.liquidityLocked());
 
       setIsFetching(false);
+      setIsFetchingFirstTime(false);
     }
   }, [isFetching]);
 
@@ -165,7 +167,9 @@ const Crowdsale = () => {
   }, [handleFetchCrowdsaleData]);
 
   useInterval(() => {
-    setIsFetching(true);
+    if (!isPurchasing) {
+      setIsFetching(true);
+    }
   }, fetchInterval);
 
   if (isLoading) {
@@ -222,16 +226,15 @@ const Crowdsale = () => {
           Current Round: <Badge variantColor={variantColorForRound(currentRound)}>{currentRound}</Badge>
         </Text>
         <Divider orientation="horizontal" width={"100%"} background="black" height={"2px"}></Divider>
-        {!isPurchasing ? (
-          <Button width={300} onClick={handleTokensPurchase} variantColor="green">
-            BUY INTO CROWDSALE: {amountToBuy || 0} ETH
-          </Button>
-        ) : null}
-        {isPurchasing ? (
+        {isPurchasing || isFetchingFirstTime ? (
           <p>
             <Spinner />
           </p>
-        ) : null}
+        ) : (
+          <Button width={300} onClick={handleTokensPurchase} variantColor="green">
+            BUY INTO CROWDSALE: {amountToBuy || 0} ETH
+          </Button>
+        )}
         <Text fontFamily="primary" fontSize={"lg"}>
           ETH AMOUNT TO BUY
         </Text>
@@ -240,7 +243,7 @@ const Crowdsale = () => {
         <div>
           Total Raised: {weiRaised} of {hardcap} ETH
           <br />
-          {isPurchasing ? (
+          {isPurchasing || isFetchingFirstTime ? (
             <Progress hasStripe isAnimated value="100" />
           ) : (
             <Progress hasStripe value={(weiRaised / hardcap) * 100} />
@@ -250,7 +253,7 @@ const Crowdsale = () => {
         <div>
           Your contributions {contributions} of {capPerAddress} ETH
           <br />
-          {isPurchasing ? (
+          {isPurchasing || isFetchingFirstTime ? (
             <Progress hasStripe isAnimated color="red" value="100" />
           ) : (
             <Progress hasStripe color="red" value={(contributions / capPerAddress) * 100} />
@@ -260,20 +263,20 @@ const Crowdsale = () => {
         <StatGroup>
           <Stat>
             <StatLabel>Balance</StatLabel>
-            <StatNumber>{isPurchasing ? <Spinner /> : tacoBalance}</StatNumber>
+            <StatNumber>{isPurchasing || isFetchingFirstTime ? <Spinner /> : tacoBalance}</StatNumber>
             <StatHelpText>Tacos</StatHelpText>
           </Stat>
 
           <Stat>
             <StatLabel>&nbsp;</StatLabel>
-            <StatNumber>{isPurchasing ? <Spinner /> : truncate(ethBalance, 2)}</StatNumber>
+            <StatNumber>{isPurchasing || isFetchingFirstTime ? <Spinner /> : truncate(ethBalance, 2)}</StatNumber>
             <StatHelpText>ETH</StatHelpText>
           </Stat>
         </StatGroup>
         <Divider orientation="horizontal" width={"100%"} background="black" height={"2px"}></Divider>
         <Stack direction="column" justifyContent="center" alignItems="center">
           <p>
-            <b>1 ETH = {tacosPerEth} TACO</b>
+            <b>1 ETH = {isPurchasing || isFetchingFirstTime ? <Spinner /> : tacosPerEth} TACO</b>
           </p>
           {liquidityLocked ? <p>Liquidity locked!</p> : <p>Liquidity hasn't been locked yet. </p>}
         </Stack>
