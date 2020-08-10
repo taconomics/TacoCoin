@@ -41,6 +41,10 @@ function truncate(str, maxDecimalDigits) {
   return str;
 }
 
+const truncateAddress = (str) => {
+  return str.slice(0, 5) + "..." + str.slice(38, 42);
+};
+
 function HomePage() {
   const [isFetching, setIsFetching] = React.useState<boolean>(true);
   const [tacoToken, setTacoToken] = React.useState<TacoToken | null>(null);
@@ -289,7 +293,7 @@ function HomePage() {
               {timesCrunchedLeaderboard.length ? (
                 timesCrunchedLeaderboard.map((taqueroStats) => (
                   <Text fontFamily="secondary" fontWeight="lg" color="white">
-                    {taqueroStats.address} - {taqueroStats.timesCrunched.toNumber()}
+                    {taqueroStats.timesCrunched.toNumber()} --- {truncateAddress(taqueroStats.address)}
                   </Text>
                 ))
               ) : (
@@ -315,7 +319,7 @@ function HomePage() {
               {tacosCrunchedleaderboard.length ? (
                 tacosCrunchedleaderboard.map((taqueroStats) => (
                   <Text fontFamily="secondary" fontWeight="lg" color="white">
-                    {taqueroStats.address} - {truncate(ethers.utils.formatEther(taqueroStats.tacosCrunched), 4)}
+                    {truncate(ethers.utils.formatEther(taqueroStats.tacosCrunched), 4)} --- {truncateAddress(taqueroStats.address)}
                   </Text>
                 ))
               ) : (

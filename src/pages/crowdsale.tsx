@@ -28,7 +28,7 @@ import customTheme from "../lib/theme";
 import Head from "next/head";
 import { TransactionResponse } from "ethers/providers";
 
-const fetchInterval = 3000; // 3 seconds
+const fetchInterval = 5000; // 5 seconds
 
 export type TaqueroStat = {
   address: string;
@@ -51,7 +51,7 @@ const truncateAddress = (str) => {
 };
 
 const variantColorForRound = (round) => {
-  if (round == "Bakers") {
+  if (round == "Cooks") {
     return "purple";
   } else if (round == "Karma") {
     return "blue";
@@ -149,7 +149,6 @@ const Crowdsale = () => {
 
       setTacosPerEth((await tacosCrowdsale.tacosPerEth()).toNumber());
 
-      console.log(await tacosCrowdsale.liquidityLocked());
       setLiquidityLocked(await tacosCrowdsale.liquidityLocked());
 
       setIsFetching(false);
@@ -165,8 +164,7 @@ const Crowdsale = () => {
   }, [handleFetchCrowdsaleData]);
 
   useInterval(() => {
-    // console.log("useIntervalHandleFetch");
-    handleFetchCrowdsaleData();
+    setIsFetching(true);
   }, fetchInterval);
 
   if (isLoading) {
@@ -219,6 +217,9 @@ const Crowdsale = () => {
         <Text fontFamily="primary" fontSize={"lg"}>
           Your address: {truncateAddress(address)} <br />
         </Text>
+        <Text>
+          Current Round: <Badge variantColor={variantColorForRound(currentRound)}>{currentRound}</Badge>
+        </Text>
         <Divider orientation="horizontal" width={"100%"} background="black" height={"2px"}></Divider>
         {!isPurchasing ? (
           <Button width={300} onClick={handleTokensPurchase} variantColor="green">
@@ -241,7 +242,7 @@ const Crowdsale = () => {
           {isPurchasing ? (
             <Progress hasStripe isAnimated value="100" />
           ) : (
-            <Progress hasStripe isAnimated value={(weiRaised / hardcap) * 100} />
+            <Progress hasStripe value={(weiRaised / hardcap) * 100} />
           )}
         </div>
         <br />
@@ -249,9 +250,9 @@ const Crowdsale = () => {
           Your contributions {contributions} of {capPerAddress} ETH
           <br />
           {isPurchasing ? (
-            <Progress hasStripe isAnimated value="100" />
+            <Progress hasStripe isAnimated color="red" value="100" />
           ) : (
-            <Progress hasStripe isAnimated value={(contributions / capPerAddress) * 100} />
+            <Progress hasStripe color="red" value={(contributions / capPerAddress) * 100} />
           )}
         </div>
         <Divider orientation="horizontal" width={"100%"} background="black" height={"2px"}></Divider>
@@ -270,9 +271,6 @@ const Crowdsale = () => {
         </StatGroup>
         <Divider orientation="horizontal" width={"100%"} background="black" height={"2px"}></Divider>
         <Stack direction="column" justifyContent="center" alignItems="center">
-          <p>
-            Current Round: <Badge variantColor={variantColorForRound(currentRound)}>{currentRound}</Badge>
-          </p>
           <p>
             <b>1 ETH = {tacosPerEth} TACO</b>
           </p>
