@@ -1,14 +1,16 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useEffect, useRef } from "react";
 import { TacoTokenFactory } from "../types/TacoTokenFactory";
 import { ethers } from "ethers";
 import { TacoToken } from "../types/TacoToken";
 import moment from "moment";
 import { BigNumber } from "ethers/utils";
-import { Box, useTheme, Flex, Icon, Text, Stack, Divider, PseudoBox, Image } from "@chakra-ui/core";
+import { Box, useTheme, Flex, Icon, Text, Stack, Divider, PseudoBox, Image, Spinner } from "@chakra-ui/core";
 import { Global } from "@emotion/core";
 import customTheme from "../lib/theme";
 import Head from "next/head";
 import LoadingTacos from "../components/LoadingTacos";
+
+const fetchInterval = 3000; // 3 seconds
 
 export type TaqueroStat = {
   address: string;
@@ -46,29 +48,66 @@ const truncateAddress = (str) => {
 };
 
 function HomePage() {
-  const [isFetching, setIsFetching] = React.useState<boolean>(true);
+  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [isFetching, setIsFetching] = React.useState<boolean>(false);
+  const [isFetchingFirstTime, setIsFetchingFirstTime] = React.useState<boolean>(true);
+  const [isCrunchLoading, setIsCrunchLoading] = React.useState<boolean>(false);
+  // const [isPurchasing, setIsPurchasing] = React.useState<boolean>(false);
+
+  const [provider, setProvider] = React.useState<ethers.providers.Web3Provider>(null);
+  const [signer, setSigner] = React.useState<ethers.providers.JsonRpcSigner>(null);
+  const [address, setAddress] = React.useState<string>("0x0");
+
   const [tacoToken, setTacoToken] = React.useState<TacoToken | null>(null);
   const [isTacoTuesday, setIsTacoTuesday] = React.useState<boolean>(false);
   const [rewardMultiplier, setRewardMultiplier] = React.useState<number>(1);
-  const [isCrunchLoading, setIsCrunchLoading] = React.useState<boolean>(false);
   const [lastCrunchTime, setLastCrunchTime] = React.useState<number>(0);
   const [tacosCrunchedleaderboard, setTacosCrunchedLeaderboard] = React.useState<TaqueroStat[]>([]);
   const [timesCrunchedLeaderboard, setTimesCrunchedLeaderboard] = React.useState<TaqueroStat[]>([]);
   const [infoFor, setInfoFor] = React.useState<InfoFor | null>(null);
   const [isOwner, setIsOwner] = React.useState<boolean>(false);
 
-  React.useEffect(() => {
-    const fetch = async () => {
-      await (window as any).ethereum.enable();
-      const provider = new ethers.providers.Web3Provider((window as any).web3.currentProvider);
+  function useInterval(callback: Function, delay: number) {
+    const savedCallback = useRef<any>();
 
-      // ⭐️ After user is successfully authenticated
-      const signer = provider.getSigner();
-      const address = await signer.getAddress();
+    // Remember the latest callback.
+    useEffect(() => {
+      savedCallback.current = callback;
+    }, [callback]);
 
-      const tacoToken = await TacoTokenFactory.connect(process.env.NEXT_PUBLIC_TACOTOKEN_CONTRACT_ADDRESS, signer);
-      setTacoToken(tacoToken);
+    // Set up the interval.
+    useEffect(() => {
+      function tick() {
+        savedCallback?.current();
+      }
+      if (delay !== null) {
+        let id = setInterval(tick, delay);
+        return () => clearInterval(id);
+      }
+    }, [delay]);
+  }
 
+  const handleFirstLoad = async () => {
+    await (window as any).ethereum.enable();
+    const provider = new ethers.providers.Web3Provider((window as any).web3.currentProvider);
+    // ⭐️ After user is successfully authenticated
+
+
+    setProvider(provider);
+    const signer = provider.getSigner();
+    setSigner(signer);
+    const address = await signer.getAddress();
+    setAddress(address);
+
+    const tacoToken = await TacoTokenFactory.connect(process.env.NEXT_PUBLIC_TACOTOKEN_CONTRACT_ADDRESS, signer);
+    setTacoToken(tacoToken);
+
+    setIsLoading(false);
+    setIsFetching(true);
+  };
+
+  const handleFetchTacoData = React.useCallback(async () => {
+    if (isFetching) {
       const isTacoTuesday = await tacoToken.isTacoTuesday();
       setIsTacoTuesday(isTacoTuesday);
       console.log("isTacoTuesday : ", isTacoTuesday);
@@ -77,54 +116,71 @@ function HomePage() {
       setRewardMultiplier(rewardMult.div(10).toNumber());
 
       const crunchTime = await tacoToken.lastCrunchTime();
-      console.log("Last Crunch Time : ", crunchTime.toString());
       setLastCrunchTime(crunchTime.toNumber());
 
       const taqueros = await tacoToken.getTaqueros();
-      console.log("taqueros: ", taqueros);
 
       const leaderboardQuery = Promise.all(taqueros.map((taquero) => tacoToken.getTaqueroStats(taquero)));
       const leaderboard = await leaderboardQuery;
       const sortedTacosCrunchedLeaderboard = leaderboard
         .map((taqueroStats, index) => ({ ...taqueroStats, address: taqueros[index] }))
         .sort((a, b) => (a.tacosCrunched.lt(b.tacosCrunched) ? 1 : -1));
-      console.log("sorted tacos crunched leaderboard: ", sortedTacosCrunchedLeaderboard);
       setTacosCrunchedLeaderboard(sortedTacosCrunchedLeaderboard);
       const sortedTimesCrunchedLeaderboard = leaderboard
         .map((taqueroStats, index) => ({ ...taqueroStats, address: taqueros[index] }))
         .sort((a, b) => (a.timesCrunched.lt(b.timesCrunched) ? 1 : -1));
-      console.log("sorted times crunched leaderboard: ", sortedTacosCrunchedLeaderboard);
       setTimesCrunchedLeaderboard(sortedTimesCrunchedLeaderboard);
 
       const info = await tacoToken.getInfoFor(address);
       Object.keys(info).map(function(key, index) {
         info[key] = info[key].toString();
       });
-      console.log("Info: ", info);
       setInfoFor(info);
 
       const owner = await tacoToken.owner();
       const isOwner = address === owner;
       setIsOwner(isOwner);
-      console.log("isOwner: ", isOwner);
 
       setIsFetching(false);
-    };
-    fetch();
+      setIsFetchingFirstTime(false);
+    }
   }, [isFetching]);
 
-  if (isFetching) {
+  React.useEffect(() => {
+    handleFirstLoad();
+  }, []);
+
+  React.useEffect(() => {
+    handleFetchTacoData();
+  }, [handleFetchTacoData]);
+
+  useInterval(() => {
+    if (!isCrunchLoading) {
+      setIsFetching(true);
+    }
+  }, fetchInterval);
+
+  const handleCrunch = async () => {
+    if (isCrunchLoading) return;
+    try {
+      console.log(tacoToken);
+      console.info("trying to crunch pool");
+      setIsCrunchLoading(true);
+      const result = await tacoToken.crunchPool();
+      await result.wait(1);
+      console.log(result);
+      setIsCrunchLoading(false);
+      setIsFetching(true);
+    } catch (err) {
+      console.error(err);
+      setIsCrunchLoading(false);
+    }
+  };
+
+  if (isLoading) {
     return <LoadingTacos></LoadingTacos>;
   }
-  // if (crunchAmount === 0) {
-  //   return (
-  //     <div>
-  //       <p>Come back when there are tacos to crunch mi compadre!</p>
-  //       <hr />;
-  //       <Leaderboard stats={leaderboard}></Leaderboard>
-  //     </div>
-  //   );
-  // }
+
   return (
     <Box pb={10}>
       <Head>
@@ -164,22 +220,7 @@ function HomePage() {
             direction="column"
             bg={"primary.500"}
             mb={[3, 3, 0]}
-            onClick={async () => {
-              if (isCrunchLoading) {
-                return;
-              }
-              try {
-                console.log(tacoToken);
-                console.info("trying to crunch pool");
-                setIsCrunchLoading(true);
-                const result = await tacoToken.crunchPool();
-                console.log(result);
-                setIsCrunchLoading(false);
-              } catch (err) {
-                console.error(err);
-                setIsCrunchLoading(false);
-              }
-            }}
+            onClick={handleCrunch}
           >
             {isCrunchLoading ? (
               <Fragment>
@@ -201,10 +242,10 @@ function HomePage() {
                   {isTacoTuesday ? `IT'S DOUBLE CRUNCH TIME!` : `IT'S CRUNCH TIME!`}
                 </Text>
                 <Text fontWeight="bold" fontSize="xl" fontFamily="primary" color="white">
-                  {`${truncate(ethers.utils.formatEther(infoFor?.crunchableTacos), 4)} $TACO`}
+                  {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.crunchableTacos), 4)} $TACO`}
                 </Text>
                 <Text fontWeight="bold" fontSize="md" fontFamily="primary" color="white">
-                  Crunch to claim a {infoFor.taqueroRewardRate * rewardMultiplier}% reward
+                  Crunch to claim a {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : infoFor.taqueroRewardRate * rewardMultiplier}% reward
                 </Text>
               </Fragment>
             )}
@@ -236,7 +277,7 @@ function HomePage() {
               Total Crunched
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-              {`${truncate(ethers.utils.formatEther(infoFor?.totalTacosCrunched), 4)} $TACO`}
+            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.totalTacosCrunched), 4)} $TACO`}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">
               {`$ amount`}
@@ -248,7 +289,7 @@ function HomePage() {
               Last Crunch Time
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-              {moment.unix(lastCrunchTime).fromNow()}
+              {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : moment.unix(lastCrunchTime).fromNow()}
             </Text>
           </Stack>
         </Stack>
@@ -260,7 +301,7 @@ function HomePage() {
               My Rewards
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-              {`${truncate(ethers.utils.formatEther(infoFor?.tacosCrunched), 4)} $TACO`}
+            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.tacosCrunched), 4)} $TACO`}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">{`$ amount`}</Text> */}
           </Stack>
@@ -270,7 +311,7 @@ function HomePage() {
               My Wallet
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-              {`${truncate(ethers.utils.formatEther(infoFor?.balance), 4)} $TACO`}
+            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.balance), 4)} $TACO`}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">{`$ amount`}</Text> */}
           </Stack>
@@ -302,7 +343,7 @@ function HomePage() {
                 ))
               ) : (
                 <Text fontFamily="secondary" color="white" fontSize="lg">
-                  {"None yet, will you be the first?"}
+                  <Spinner />
                 </Text>
               )}
             </Flex>
@@ -328,7 +369,7 @@ function HomePage() {
                 ))
               ) : (
                 <Text fontFamily="secondary" color="white" fontSize="lg">
-                  {"None yet, will you be the first?"}
+                  <Spinner />
                 </Text>
               )}
             </Flex>
