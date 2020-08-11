@@ -49,6 +49,7 @@ function HomePage() {
   const [isFetching, setIsFetching] = React.useState<boolean>(true);
   const [tacoToken, setTacoToken] = React.useState<TacoToken | null>(null);
   const [isTacoTuesday, setIsTacoTuesday] = React.useState<boolean>(false);
+  const [rewardMultiplier, setRewardMultiplier] = React.useState<number>(1);
   const [isCrunchLoading, setIsCrunchLoading] = React.useState<boolean>(false);
   const [lastCrunchTime, setLastCrunchTime] = React.useState<number>(0);
   const [tacosCrunchedleaderboard, setTacosCrunchedLeaderboard] = React.useState<TaqueroStat[]>([]);
@@ -71,6 +72,9 @@ function HomePage() {
       const isTacoTuesday = await tacoToken.isTacoTuesday();
       setIsTacoTuesday(isTacoTuesday);
       console.log("isTacoTuesday : ", isTacoTuesday);
+
+      const rewardMult = await tacoToken.rewardMultiplier();
+      setRewardMultiplier(rewardMult.div(10).toNumber());
 
       const crunchTime = await tacoToken.lastCrunchTime();
       console.log("Last Crunch Time : ", crunchTime.toString());
@@ -200,7 +204,7 @@ function HomePage() {
                   {`${truncate(ethers.utils.formatEther(infoFor?.crunchableTacos), 4)} $TACO`}
                 </Text>
                 <Text fontWeight="bold" fontSize="md" fontFamily="primary" color="white">
-                  Crunch to claim a {infoFor.taqueroRewardRate}% reward
+                  Crunch to claim a {infoFor.taqueroRewardRate * rewardMultiplier}% reward
                 </Text>
               </Fragment>
             )}
