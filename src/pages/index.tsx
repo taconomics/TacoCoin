@@ -152,20 +152,17 @@ function HomePage() {
       setIsFetching(false);
       setIsFetchingFirstTime(false);
     }
-  }, [isFetching]);
+  }, [isFetching, tacoToken]);
 
   React.useEffect(() => {
     handleFirstLoad();
   }, []);
 
-  React.useEffect(() => {
-    handleFetchTacoData();
-  }, [handleFetchTacoData]);
-
   useInterval(() => {
     if (!isCrunchLoading) {
       setIsFetching(true);
     }
+    handleFetchTacoData();
   }, fetchInterval);
 
   const handleCrunch = async () => {
