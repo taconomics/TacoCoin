@@ -115,7 +115,7 @@ function HomePage() {
   };
 
   const handleFetchTacoData = React.useCallback(async () => {
-    if (isFetching) {
+    if (isFetching && tacoToken) {
       const isTacoTuesday = await tacoToken.isTacoTuesday();
       setIsTacoTuesday(isTacoTuesday);
       console.log("isTacoTuesday : ", isTacoTuesday);
