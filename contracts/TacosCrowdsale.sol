@@ -269,8 +269,25 @@ contract TacosCrowdsale is Ownable {
     /**
      * Function that once sale is complete add the liquidity to Uniswap
      * then locks the liquidity by burning the UNI tokens.
+     * 
+     * Originally this function was public, however this was abused in $TACO.
+     * Somebody made a contract that deployed the liquidity and bought 120ETH
+     * worth of $TACO within the same transaction, essentially defeating the
+     * purpose of trying to prevent whales from joining in.
+     * https://etherscan.io/tx/0xeb84f538c0afeb0b542311236be10529925bd80e5fb34e4e24256b8b456234da/
+     *
+     * A few things to prevent that have been discussed.
+     * 1. Make this function onlyOwner
+     * 2. After liquidity is added, when tacoToken is unpaused and for 24 hours
+     *      after that, no single transaction can be done for more than X amount.
+     *      Forcing whales to execute more than a single transaction.
+     * 3. A Bridge Tax or just a sale tax. Everytime a whale sells their tokens
+     *      burn as many tokens as they are trying to sell. This would be a bit
+     *      tricky to implement, as we need to define what qualifies as a whale.
+     *
+     * For now the only implementation for future usage is making this function onlyOwner.
      */
-    function addAndLockLiquidity() external {
+    function addAndLockLiquidity() external onlyOwner {
         require(
             hasEnded(),
             "TacosCrowdsale: can only send liquidity once hardcap is reached"
