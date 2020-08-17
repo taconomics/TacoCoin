@@ -88,22 +88,30 @@ function HomePage() {
   }
 
   const handleFirstLoad = async () => {
-    await (window as any).ethereum.enable();
-    const provider = new ethers.providers.Web3Provider((window as any).web3.currentProvider);
-    // ⭐️ After user is successfully authenticated
+    window.addEventListener("load", async () => {
+      try {
+        // Request full provider if needed
+        // Full provider exposed
+        await (window as any).ethereum.enable();
+        const provider = new ethers.providers.Web3Provider((window as any).web3.currentProvider);
+        // ⭐️ After user is successfully authenticated
 
+        setProvider(provider);
+        const signer = provider.getSigner();
+        setSigner(signer);
+        const address = await signer.getAddress();
+        setAddress(address);
 
-    setProvider(provider);
-    const signer = provider.getSigner();
-    setSigner(signer);
-    const address = await signer.getAddress();
-    setAddress(address);
+        const tacoToken = await TacoTokenFactory.connect(process.env.NEXT_PUBLIC_TACOTOKEN_CONTRACT_ADDRESS, signer);
+        setTacoToken(tacoToken);
 
-    const tacoToken = await TacoTokenFactory.connect(process.env.NEXT_PUBLIC_TACOTOKEN_CONTRACT_ADDRESS, signer);
-    setTacoToken(tacoToken);
-
-    setIsLoading(false);
-    setIsFetching(true);
+        setIsLoading(false);
+        setIsFetching(true);
+      } catch (error) {
+        console.error(error);
+        // User denied full provider access
+      }
+    });
   };
 
   const handleFetchTacoData = React.useCallback(async () => {
@@ -242,10 +250,16 @@ function HomePage() {
                   {isTacoTuesday ? `IT'S DOUBLE CRUNCH TIME!` : `IT'S CRUNCH TIME!`}
                 </Text>
                 <Text fontWeight="bold" fontSize="xl" fontFamily="primary" color="white">
-                  {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.crunchableTacos), 4)} $TACO`}
+                  {isCrunchLoading || isFetchingFirstTime ? (
+                    <Spinner />
+                  ) : (
+                    `${truncate(ethers.utils.formatEther(infoFor?.crunchableTacos), 4)} $TACO`
+                  )}
                 </Text>
                 <Text fontWeight="bold" fontSize="md" fontFamily="primary" color="white">
-                  Crunch to claim a {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : infoFor.taqueroRewardRate * rewardMultiplier}% reward
+                  Crunch to claim a{" "}
+                  {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : infoFor.taqueroRewardRate * rewardMultiplier}%
+                  reward
                 </Text>
               </Fragment>
             )}
@@ -277,7 +291,11 @@ function HomePage() {
               Total Crunched
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.totalTacosCrunched), 4)} $TACO`}
+              {isCrunchLoading || isFetchingFirstTime ? (
+                <Spinner />
+              ) : (
+                `${truncate(ethers.utils.formatEther(infoFor?.totalTacosCrunched), 4)} $TACO`
+              )}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">
               {`$ amount`}
@@ -301,7 +319,11 @@ function HomePage() {
               My Rewards
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.tacosCrunched), 4)} $TACO`}
+              {isCrunchLoading || isFetchingFirstTime ? (
+                <Spinner />
+              ) : (
+                `${truncate(ethers.utils.formatEther(infoFor?.tacosCrunched), 4)} $TACO`
+              )}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">{`$ amount`}</Text> */}
           </Stack>
@@ -311,7 +333,11 @@ function HomePage() {
               My Wallet
             </Text>
             <Text fontFamily="primary" fontWeight="bold" fontSize="xl" color="white">
-            {isCrunchLoading || isFetchingFirstTime ? <Spinner /> : `${truncate(ethers.utils.formatEther(infoFor?.balance), 4)} $TACO`}
+              {isCrunchLoading || isFetchingFirstTime ? (
+                <Spinner />
+              ) : (
+                `${truncate(ethers.utils.formatEther(infoFor?.balance), 4)} $TACO`
+              )}
             </Text>
             {/* <Text fontFamily="primary" fontWeight="bold" fontSize="l" color="white">{`$ amount`}</Text> */}
           </Stack>
@@ -364,7 +390,8 @@ function HomePage() {
               {tacosCrunchedleaderboard.length ? (
                 tacosCrunchedleaderboard.map((taqueroStats) => (
                   <Text fontFamily="secondary" fontWeight="lg" color="white">
-                    {truncate(ethers.utils.formatEther(taqueroStats.tacosCrunched), 4)} --- {truncateAddress(taqueroStats.address)}
+                    {truncate(ethers.utils.formatEther(taqueroStats.tacosCrunched), 4)} ---{" "}
+                    {truncateAddress(taqueroStats.address)}
                   </Text>
                 ))
               ) : (
