@@ -84,6 +84,9 @@ contract TacosCrowdsale is Ownable {
     // Pointer to the UniswapRouter
     IUniswapV2Router02 internal uniswapRouter;
 
+    // Gas limit
+    uint256 public maxGasPrice = 100e9;
+
     //===============================================//
     //                 Constructor                   //
     //===============================================//
@@ -114,6 +117,9 @@ contract TacosCrowdsale is Ownable {
 
     // Main entry point for buying into the Pre-Sale. Contract Receives $ETH
     receive() external payable {
+        // Limit the gas to prevent gas wars
+        require(tx.gasprice <= maxGasPrice, "TacosCrowsale: No Bots allowed here.");
+
         // Prevent owner from buying tokens, but allow them to add pre-sale ETH to the contract for Uniswap liquidity
         if (owner() != msg.sender) {
             // Validations.
@@ -266,6 +272,11 @@ contract TacosCrowdsale is Ownable {
         }
     }
 
+    // Gas Limit - Set Max Gas Price
+    function setMaxGasPrice(uint256 _maxGasPrice) external onlyOwner {
+        maxGasPrice = _maxGasPrice;
+    }
+
     /**
      * Function that once sale is complete add the liquidity to Uniswap
      * then locks the liquidity by burning the UNI tokens.
@@ -292,6 +303,7 @@ contract TacosCrowdsale is Ownable {
             hasEnded(),
             "TacosCrowdsale: can only send liquidity once hardcap is reached"
         );
+        require(tx.gasprice <= maxGasPrice, "TacosCrowsale: No Bots allowed here.");
 
         // How many ETH is in this contract
         uint256 amountEthForUniswap = address(this).balance;
@@ -313,4 +325,22 @@ contract TacosCrowdsale is Ownable {
         );
         liquidityLocked = true;
     }
-}
+
+    // To add in a Smart Contract, allows the owner to claim the tokens accidentally sent to the contract
+
+    /// @notice This method can be used by the controller to extract mistakenly
+    ///  sent tokens to this contract.
+    /// @param _token The address of the token contract that you want to recover
+    ///  set to 0 in case you want to extract ether.
+    function claimTokens(address _token) public onlyOwner {
+        require(liquidityLocked, "TacosCrowdsale: Can only claim tokens after Liquidity has been locked.");
+        require(_token != address(0) && _token != address(tacoToken), "TacosCrowdsale: Not possible to claim Tacos");
+
+        IERC20 token = IERC20(_token);
+        uint256 balance = token.balanceOf(address(this));
+        token.transfer(owner(), balance);
+        ClaimedTokens(_token, owner(), balance);
+    }
+
+    event ClaimedTokens(address indexed _token, address indexed _controller, uint256 _amount);
+    }
