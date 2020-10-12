@@ -79,12 +79,14 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
    * @dev Creates a new token type and assigns _initialSupply to an address
    * @param _maxSupply max supply allowed
    * @param _initialSupply Optional amount to supply the first owner
+   * @param _uri This params doesn't do anything
    * @param _data Optional data to pass if receiver is contract
    * @return tokenId The newly created token ID
    */
   function create(
     uint256 _maxSupply,
     uint256 _initialSupply,
+    string calldata _uri,
     bytes calldata _data
   ) external override onlyAdmin returns (uint256 tokenId) {
     require(_initialSupply <= _maxSupply, "ERC1155Tradable#create: Initial supply cannot be more than max supply");
