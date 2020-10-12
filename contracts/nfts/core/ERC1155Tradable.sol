@@ -79,7 +79,6 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
    * @dev Creates a new token type and assigns _initialSupply to an address
    * @param _maxSupply max supply allowed
    * @param _initialSupply Optional amount to supply the first owner
-   * @param _uri Optional URI for this token type
    * @param _data Optional data to pass if receiver is contract
    * @return tokenId The newly created token ID
    */

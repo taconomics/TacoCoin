@@ -119,7 +119,7 @@ describe("Taconomics", function() {
       });
 
       it("creates NFT with next id: 1", async function () {
-        await taconomics.create(100, 0, "", []);
+        await taconomics.create(100, 0, []);
         expect(await taconomics.maxSupply(1)).to.eq(100);
         expect(await taconomics.tokenSupply(1)).to.eq(0);
         expect(await taconomics.uri(1)).to.eq("https://game.taconomics.io/tacos/1");
@@ -127,25 +127,25 @@ describe("Taconomics", function() {
       });
 
       it("creates NFT with next id: 2", async function () {
-        await taconomics.create(100, 0, "", []);
+        await taconomics.create(100, 0, []);
         expect(await taconomics.maxSupply(1)).to.eq(100);
         expect(await taconomics.tokenSupply(1)).to.eq(0);
         expect(await taconomics.uri(1)).to.eq("https://game.taconomics.io/tacos/1");
         expect(await taconomics.maxSupply(2)).to.eq(0)
 
-        await taconomics.create(10, 0, "", []);
+        await taconomics.create(10, 0, []);
         expect(await taconomics.maxSupply(2)).to.eq(10)
         expect(await taconomics.tokenSupply(1)).to.eq(0);
         expect(await taconomics.uri(2)).to.eq("https://game.taconomics.io/tacos/2");
       });
 
       it("non-admins cannot create new NFTs", async function () {
-        await expect(taconomics.connect(minter).create(100, 0 ,"", []))
+        await expect(taconomics.connect(minter).create(100, 0 , []))
           .to.be.revertedWith("Roles: caller does not have the Admin role");
       });
 
       it("new admins can create new NFTs", async function () {
-        await taconomics.connect(admin).create(100, 0, "", []);
+        await taconomics.connect(admin).create(100, 0, []);
         expect(await taconomics.maxSupply(1)).to.eq(100);
       });
     });
@@ -155,7 +155,7 @@ describe("Taconomics", function() {
 
       beforeEach(async function() {
         deployerAddress = await deployer.getAddress();
-        await taconomics.create(1, 0, "", []);
+        await taconomics.create(1, 0, []);
       });
 
       it("returns true when token is still mintable", async function() {
