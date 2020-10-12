@@ -109,7 +109,31 @@ describe("Taconomics", function() {
       await taconomics.addAdmin(await admin.getAddress());
     });
 
-    // describe("setURI");
+    describe("setURI", function () {
+      beforeEach(async function () {
+        await taconomics.create(100, 0, []);
+      });
+
+      it("admin can change uri", async function () {
+        await taconomics.connect(admin).setURI("https://supergame.com/");
+        expect(await taconomics.uri(1)).to.eq("https://supergame.com/1");
+      });
+
+      it("owner can change uri", async function () {
+        await taconomics.setURI("https://megagame.com/");
+        expect(await taconomics.uri(1)).to.eq("https://megagame.com/1");
+      });
+
+      it("minter cannot change uri", async function () {
+        await expect(taconomics.connect(minter).setURI("https://megagame.com/"))
+          .to.be.revertedWith("Roles: caller does not have the Admin role");
+      });
+
+      it("user cannot change uri", async function () {
+        await expect(taconomics.connect(user).setURI("https://megagame.com/"))
+          .to.be.revertedWith("Roles: caller does not have the Admin role");
+      });
+    });
   
     describe("#create", function () {
       it("handles non existant tokens", async function () {
