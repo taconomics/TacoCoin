@@ -21,7 +21,7 @@ const CIRCULATING_SUPPLY = "14530320000000000000000000";
 const TACOS_PER_ETH = 34596;
 const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
-describe("Token Crowdsale", function() {
+xdescribe("Token Crowdsale", function() {
   let tacoToken: TacoToken;
   let karmaToken: KarmaTokenMock;
   let tacosCrowdsale: TacosCrowdsale;
