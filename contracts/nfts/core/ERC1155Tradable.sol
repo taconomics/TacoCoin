@@ -21,7 +21,7 @@ contract ProxyRegistry {
 contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
   address proxyRegistryAddress;
   uint256 private _currentTokenID = 0;
-  mapping(uint256 => address) public creators;
+  mapping(uint256 => address) public creatorOf;
   mapping(uint256 => uint256) public tokenSupply;
   mapping(uint256 => uint256) public tokenMaxSupply;
   // Contract name
@@ -35,7 +35,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
     string memory _uri,
     address _proxyRegistryAddress
   )
-    public
+    internal
     OwnableAdminAndMinter()
     ERC1155(_uri)
   {
@@ -86,17 +86,12 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
   function create(
     uint256 _maxSupply,
     uint256 _initialSupply,
-    string calldata _uri,
     bytes calldata _data
   ) external override onlyAdmin returns (uint256 tokenId) {
     require(_initialSupply <= _maxSupply, "ERC1155Tradable#create: Initial supply cannot be more than max supply");
     uint256 _id = _getNextTokenID();
     _incrementTokenTypeId();
-    creators[_id] = _msgSender();
-
-    if (bytes(_uri).length > 0) {
-      emit URI(_uri, _id);
-    }
+    creatorOf[_id] = _msgSender();
 
     if (_initialSupply != 0) _mint(_msgSender(), _id, _initialSupply, _data);
     tokenSupply[_id] = _initialSupply;
@@ -117,17 +112,16 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
     uint256 _quantity,
     bytes calldata _data
   ) external override onlyMinter {
-    uint256 tokenId = _id;
-    require(tokenSupply[tokenId] < tokenMaxSupply[tokenId], "ERC1155Tradable#mint: Max supply reached");
+    require(tokenSupply[_id] < tokenMaxSupply[_id], "ERC1155Tradable#mint: Max supply reached");
     _mint(_to, _id, _quantity, _data);
     tokenSupply[_id] = tokenSupply[_id].add(_quantity);
   }
 
   /**
-   * Override isApprovedForAll to whitelist user's OpenSea proxy accounts to enable gas-free listings.
+   * Override isApprovedForAll to allow user's OpenSea proxy accounts to enable gas-free listings.
    */
   function isApprovedForAll(address _owner, address _operator) public view override returns (bool isOperator) {
-    // Whitelist OpenSea proxy contract for easy trading.
+    // Allows OpenSea proxy contract for easy trading.
     ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
     if (address(proxyRegistry.proxies(_owner)) == _operator) {
       return true;
@@ -142,7 +136,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
    * @return bool whether the token exists
    */
   function _exists(uint256 _id) internal view returns (bool) {
-    return creators[_id] != address(0);
+    return creatorOf[_id] != address(0);
   }
 
   /**
