@@ -10,11 +10,12 @@ describe("Taconomics", function() {
   let minter: Signer;
   let admin: Signer;
   let user: Signer;
+  let creator: Signer;
 
   let taconomics: Taconomics;
 
   beforeEach(async function () {
-    [deployer, minter, admin, user] = await ethers.getSigners();
+    [deployer, minter, admin, user, creator] = await ethers.getSigners();
     taconomics = await (new TaconomicsFactory(deployer)).deploy(
       "0xa5409ec958c83c3f309868babaca7c86dcb077c1",
       "https://game.taconomics.io/tacos/",
@@ -23,90 +24,168 @@ describe("Taconomics", function() {
     await taconomics.deployed();
   });
 
-  describe("#addAdmin", function () {
-    it("existing admin can add new admins", async function () {
-      let adminAddress = await admin.getAddress();
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
-      await taconomics.addAdmin(adminAddress);
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
+  describe("admin role", function () {
+    describe("#addAdmin", function () {
+      it("existing admin can add new admins", async function () {
+        let adminAddress = await admin.getAddress();
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
+        await taconomics.addAdmin(adminAddress);
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
+      });
+
+      it("non admin cannot add new admins", async function () {
+        let adminAddress = await admin.getAddress();
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
+        await expect(taconomics.connect(minter).addAdmin(adminAddress))
+          .be.revertedWith("AccessControl: sender must be an admin to grant");
+      });
     });
 
-    it("non admin cannot add new admins", async function () {
-      let adminAddress = await admin.getAddress();
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
-      await expect(taconomics.connect(minter).addAdmin(adminAddress))
-        .be.revertedWith("AccessControl: sender must be an admin to grant");
-    });
-  });
+    describe("#removeAdmin", function () {
+      it("owner cannot be removed", async function () {
+        await expect(taconomics.removeAdmin(await deployer.getAddress()))
+          .to.be.revertedWith("Roles: Owner cannot lose the admin role.");
+      });
 
-  describe("#removeAdmin", function () {
-    it("owner cannot stop being admin", async function () {
-      await expect(taconomics.removeAdmin(await deployer.getAddress()))
-        .to.be.revertedWith("Roles: owner cannot lose the Admin role");
-    });
+      it("admin can be removed, if there are more than 1", async function () {
+        let adminAddress = await admin.getAddress();
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
+        await taconomics.addAdmin(adminAddress);
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
+        await taconomics.removeAdmin(adminAddress);
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
+      });
 
-    it("non owner admin can be removed", async function () {
-      let adminAddress = await admin.getAddress();
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
-      await taconomics.addAdmin(adminAddress);
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
-      await taconomics.removeAdmin(adminAddress);
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
-    });
+      it("owner cannot be removed, even when there is more than 1 admin", async function () {
+        let adminAddress = await admin.getAddress();
+        let deployerAddress = await deployer.getAddress();
+        await taconomics.addAdmin(adminAddress);
 
-    it("non admin cannot remove admin", async function () {
-      let adminAddress = await admin.getAddress();
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
-      await taconomics.addAdmin(adminAddress);
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
-      await expect(taconomics.connect(minter).removeAdmin(adminAddress))
-        .to.be.revertedWith("AccessControl: sender must be an admin to revoke");
-      expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
-    });
-  });
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), deployerAddress)).to.be.true;
+        await expect(taconomics.removeAdmin(deployerAddress))
+          .to.be.revertedWith("Roles: Owner cannot lose the admin role.");
+      });
 
-  describe("#addMinter", function () {
-    it("admin can add new minter", async function () {
-      let minterAddress = await minter.getAddress();
-      expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.false;
-      await taconomics.addMinter(minterAddress);
-      expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
-    });
+      it("previous owner can be removed, after renouncing ownership, and there is more than 1 admin", async function () {
+        let adminAddress = await admin.getAddress();
+        let deployerAddress = await deployer.getAddress();
+        await taconomics.addAdmin(adminAddress);
+        await taconomics.renounceOwnership();
 
-    it("minter cannot add new minters", async function () {
-      let minterAddress = await minter.getAddress();
-      let userAddress = await user.getAddress();
-      await taconomics.addMinter(minterAddress);
-      expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
-      await expect(taconomics.connect(minter).addMinter(userAddress))
-        .be.revertedWith("AccessControl: sender must be an admin to grant");
-    });
-  });
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), deployerAddress)).to.be.true;
+        await taconomics.removeAdmin(deployerAddress);
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), deployerAddress)).to.be.false;
+      });
 
-  describe("#removeMinter", function () {
-    let minterAddress: string;
+      it("last admin cannot be removed", async function () {
+        let adminAddress = await admin.getAddress();
+        let deployerAddress = await deployer.getAddress();
+        await taconomics.addAdmin(adminAddress);
+        await taconomics.renounceOwnership();
+        await taconomics.removeAdmin(deployerAddress);
+        
+        await expect(taconomics.removeAdmin(deployerAddress))
+          .to.be.revertedWith("Roles: There must always be at least 1 Admin.");
+      });
 
-    beforeEach(async function () {
-      await taconomics.addMinter(await minter.getAddress());
-      minterAddress = await minter.getAddress();
-    });
-
-    it("admin can remove minters", async function () {
-      expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
-      await taconomics.removeMinter(minterAddress);
-      expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.false;
-    });
-
-    it("non admin cannot remove minters", async function () {
-      await expect(taconomics.connect(user).removeMinter(minterAddress))
-        .to.be.revertedWith("AccessControl: sender must be an admin to revoke");
+      it("non admin cannot remove admin", async function () {
+        let adminAddress = await admin.getAddress();
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.false;
+        await taconomics.addAdmin(adminAddress);
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
+        await expect(taconomics.connect(minter).removeAdmin(adminAddress))
+          .to.be.revertedWith("AccessControl: sender must be an admin to revoke");
+        expect(await taconomics.hasRole(await taconomics.DEFAULT_ADMIN_ROLE(), adminAddress)).to.be.true;
+      });
     });
   });
 
-  describe("fullty setup", function () {
+  describe("minter role", function () {
+    describe("#addMinter", function () {
+      it("admin can add new minter", async function () {
+        let minterAddress = await minter.getAddress();
+        expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.false;
+        await taconomics.addMinter(minterAddress);
+        expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
+      });
+
+      it("minter cannot add new minters", async function () {
+        let minterAddress = await minter.getAddress();
+        let userAddress = await user.getAddress();
+        await taconomics.addMinter(minterAddress);
+        expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
+        await expect(taconomics.connect(minter).addMinter(userAddress))
+          .be.revertedWith("AccessControl: sender must be an admin to grant");
+      });
+    });
+
+    describe("#removeMinter", function () {
+      let minterAddress: string;
+
+      beforeEach(async function () {
+        minterAddress = await minter.getAddress();
+        await taconomics.addMinter(minterAddress);
+      });
+
+      it("admin can remove minters", async function () {
+        expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.true;
+        await taconomics.removeMinter(minterAddress);
+        expect(await taconomics.hasRole(await taconomics.MINTER_ROLE(), minterAddress)).to.be.false;
+      });
+
+      it("non admin cannot remove minters", async function () {
+        await expect(taconomics.connect(user).removeMinter(minterAddress))
+          .to.be.revertedWith("AccessControl: sender must be an admin to revoke");
+      });
+    });
+  });
+
+  describe("creator role", function () {
+    describe("#addCreator", function () {
+      it("admin can add new creator", async function () {
+        let creatorAddress = await creator.getAddress();
+        expect(await taconomics.hasRole(await taconomics.CREATOR_ROLE(), creatorAddress)).to.be.false;
+        await taconomics.addCreator(creatorAddress);
+        expect(await taconomics.hasRole(await taconomics.CREATOR_ROLE(), creatorAddress)).to.be.true;
+      });
+
+      it("creator cannot add new creators", async function () {
+        let creatorAddress = await creator.getAddress();
+        let userAddress = await user.getAddress();
+        await taconomics.addCreator(creatorAddress);
+        expect(await taconomics.hasRole(await taconomics.CREATOR_ROLE(), creatorAddress)).to.be.true;
+        await expect(taconomics.connect(minter).addCreator(userAddress))
+          .be.revertedWith("AccessControl: sender must be an admin to grant");
+      });
+    });
+
+    describe("#removeCreator", function () {
+      let creatorAddress: string;
+
+      beforeEach(async function () {
+        creatorAddress = await creator.getAddress();
+        await taconomics.addCreator(creatorAddress);
+        
+      });
+
+      it("admin can remove creators", async function () {
+        expect(await taconomics.hasRole(await taconomics.CREATOR_ROLE(), creatorAddress)).to.be.true;
+        await taconomics.removeCreator(creatorAddress);
+        expect(await taconomics.hasRole(await taconomics.CREATOR_ROLE(), creatorAddress)).to.be.false;
+      });
+
+      it("non admin cannot remove creators", async function () {
+        await expect(taconomics.connect(user).removeCreator(creatorAddress))
+          .to.be.revertedWith("AccessControl: sender must be an admin to revoke");
+      });
+    });
+  });
+
+  describe("fully setup", function () {
     beforeEach(async function () {
       await taconomics.addMinter(await minter.getAddress());
       await taconomics.addAdmin(await admin.getAddress());
+      await taconomics.addCreator(await creator.getAddress());
     });
 
     describe("setURI", function () {
@@ -163,13 +242,18 @@ describe("Taconomics", function() {
         expect(await taconomics.uri(2)).to.eq("https://game.taconomics.io/tacos/2");
       });
 
-      it("non-admins cannot create new NFTs", async function () {
+      it("minter cannot create new NFTs", async function () {
         await expect(taconomics.connect(minter).create(100, 0, "", []))
-          .to.be.revertedWith("Roles: caller does not have the Admin role");
+          .to.be.revertedWith("Roles: caller does not have the Creator role");
       });
 
-      it("new admins can create new NFTs", async function () {
-        await taconomics.connect(admin).create(100, 0, "", []);
+      it("admin cannot create new NFTs", async function () {
+        await expect(taconomics.connect(admin).create(100, 0, "", []))
+          .to.be.revertedWith("Roles: caller does not have the Creator role");
+      });
+
+      it("creator cann create new NFTs", async function () {
+        await taconomics.connect(creator).create(100, 0, "", []);
         expect(await taconomics.maxSupply(1)).to.eq(100);
       });
     });

@@ -1,13 +1,13 @@
 import { ethers } from "@nomiclabs/buidler";
 import { expect } from "chai";
 import { network } from "@nomiclabs/buidler";
-import { TacoToken } from "../src/types/TacoToken";
-import { UniswapV2PairMockFactory } from "../src/types/UniswapV2PairMockFactory";
-import { UniswapFactoryMockFactory } from "../src/types/UniswapFactoryMockFactory";
+import { TacoToken } from "../../src/types/TacoToken";
+import { UniswapV2PairMockFactory } from "../../src/types/UniswapV2PairMockFactory";
+import { UniswapFactoryMockFactory } from "../../src/types/UniswapFactoryMockFactory";
 import { Signer } from "ethers";
-import { TacoTokenFactory } from "../src/types/TacoTokenFactory";
+import { TacoTokenFactory } from "../../src/types/TacoTokenFactory";
 import { BigNumber } from "ethers/utils";
-import { UniswapV2PairMock } from "../src/types/UniswapV2PairMock";
+import { UniswapV2PairMock } from "../../src/types/UniswapV2PairMock";
 import { AddressZero } from "ethers/constants";
 
 export type TaqueroStat = {
