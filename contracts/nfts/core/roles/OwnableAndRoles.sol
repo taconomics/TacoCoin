@@ -31,7 +31,14 @@ contract OwnableAndRoles is Ownable, AccessControl {
   }
 
   function revokeRole(bytes32 role, address account) public override {
-    require(account != owner() || role != DEFAULT_ADMIN_ROLE, "Roles: owner cannot lose the Admin role");
+    require(
+      role != DEFAULT_ADMIN_ROLE || account != owner(),
+      "Roles: Owner cannot lose the admin role."
+    );
+    require(
+      role != DEFAULT_ADMIN_ROLE || getRoleMemberCount(role) > 1,
+      "Roles: There must always be at least 1 Admin."
+    );
     super.revokeRole(role, account);
   }
 
