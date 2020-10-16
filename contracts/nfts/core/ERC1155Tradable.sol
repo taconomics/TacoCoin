@@ -4,7 +4,7 @@ pragma solidity ^0.6.0;
 
 import "./lib/ERC1155.sol";
 import "./interfaces/IERC1155Tradable.sol";
-import "./roles/OwnableAdminAndMinter.sol";
+import "./roles/OwnableAndRoles.sol";
 
 contract OwnableDelegateProxy {}
 
@@ -18,7 +18,7 @@ contract ProxyRegistry {
  * has create and mint functionality, and supports useful standards from OpenZeppelin,
   like _exists(), name(), symbol(), and totalSupply()
  */
-contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
+contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
   address proxyRegistryAddress;
   uint256 private _currentTokenID = 0;
   mapping(uint256 => address) public creators;
@@ -36,7 +36,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
     address _proxyRegistryAddress
   )
     internal
-    OwnableAdminAndMinter()
+    OwnableAndRoles()
     ERC1155(_uri)
   {
     name = _name;
@@ -88,7 +88,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAdminAndMinter {
     uint256 _initialSupply,
     string calldata _uri,
     bytes calldata _data
-  ) external override onlyAdmin returns (uint256 tokenId) {
+  ) external override onlyCreator returns (uint256 tokenId) {
     require(_initialSupply <= _maxSupply, "ERC1155Tradable#create: Initial supply cannot be more than max supply");
     uint256 _id = _getNextTokenID();
     _incrementTokenTypeId();
