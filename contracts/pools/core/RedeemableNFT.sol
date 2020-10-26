@@ -11,10 +11,8 @@ contract RedeemableNFT is Ownable {
   using SafeMath for uint256;
 
   struct NFT {
-    address beneficiaryAddress;
     IRedeemableStrategy strategy;
     uint256 pointsToRedeem;
-    uint8 percentCostOfUnderlying;
   }
 
   IERC1155Tradable public nftsContract;
@@ -27,68 +25,36 @@ contract RedeemableNFT is Ownable {
 
   event NFTAdded(
     uint256 indexed nftId,
-    uint256 pointsToRedeem,
-    uint8 percentCostOfUnderlying,
-    address indexed beneficiaryAddress,
+    uint256 indexed pointsToRedeem,
     address indexed strategyAddress
-  );
-
-  event NFTCostUpdated(
-    uint256 indexed nftId,
-    uint256 previouspointsToRedeem,
-    uint256 indexed newpointsToRedeem,
-    uint8 previousPercentCostOfUnderlying,
-    uint8 indexed newPercentCostOfUnderlying
   );
 
   event NFTStrategyUpdated(
     uint256 indexed nftId,
-    address previousStrategyAddress,
+    address indexed previousStrategyAddress,
     address indexed newStrategyAddress
   );
 
   function addNFT(
     uint256 nftId,
     uint256 pointsToRedeem,
-    uint8 percentCost,
-    address beneficiary,
     address strategy
   ) public onlyOwner {
-    nfts[nftId] = NFT(beneficiary, IRedeemableStrategy(strategy), pointsToRedeem, percentCost);
-    emit NFTAdded(nftId, pointsToRedeem, percentCost, beneficiary, strategy);
-  }
-
-  function updateNFTCost(
-    uint256 nftId,
-    uint256 pointsToRedeem,
-    uint8 percentCost
-  ) public onlyOwner {
-    NFT storage nft = nfts[nftId];
-    require(nft.pointsToRedeem != 0, "RedeemableNFT#updateNFTCost: NFT not found");
-
-    emit NFTCostUpdated(
-      nftId,
-      nft.pointsToRedeem,
-      pointsToRedeem,
-      nft.percentCostOfUnderlying,
-      percentCost
-    );
-
-    nft.pointsToRedeem = pointsToRedeem;
-    nft.percentCostOfUnderlying = percentCost;
+    nfts[nftId] = NFT(IRedeemableStrategy(strategy), pointsToRedeem);
+    emit NFTAdded(nftId, pointsToRedeem, strategy);
   }
 
   function updateNFTStrategy(uint256 nftId, address strategy) public onlyOwner {
     NFT storage nft = nfts[nftId];
     require(nft.pointsToRedeem != 0, "RedeemableNFT#updateNFTStrategy: NFT not found");
 
+    nft.strategy = IRedeemableStrategy(strategy);
+
     emit NFTStrategyUpdated(
       nftId,
       address(nft.strategy),
       strategy
     );
-
-    nft.strategy = IRedeemableStrategy(strategy);
   }
 
   function _increasePoints(address account, uint256 pointsToAdd) internal {
@@ -102,7 +68,7 @@ contract RedeemableNFT is Ownable {
     require(points[msg.sender] >= nft.pointsToRedeem, "RedeemableNFT#_redeem: Not enough points to redeem for NFT");
     require(nftsContract.mintable(nftId), "RedeemableNFT#_redeem: Max NFTs minted");
     require(
-      address(nft.strategy) == address(0) || nft.strategy.canRedeem(msg.sender),
+      address(nft.strategy) == address(0) || nft.strategy.canRedeem(msg.sender, nftId),
       "RedeemableNFT#_redeem: Sender doesn't meet the requirements to mint."
     );
 
