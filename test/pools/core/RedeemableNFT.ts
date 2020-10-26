@@ -8,7 +8,7 @@ import { StakeableTokenWrapper } from '../../../src/types/StakeableTokenWrapper'
 import { KarmaTokenMockFactory } from "../../../src/types/KarmaTokenMockFactory";
 import { KarmaTokenMock } from "../../../src/types/KarmaTokenMock";
 
-describe("StakeableTokenWrapper", function() {
+describe("StakeableToken", function() {
   let deployer: Signer;
   let staker: Signer;
   let stakeableTokenWrapper: StakeableTokenWrapper;
