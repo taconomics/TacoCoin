@@ -31,8 +31,8 @@ contract RedeemableNFT is Ownable {
 
   event NFTStrategyUpdated(
     uint256 indexed nftId,
-    address indexed previousStrategyAddress,
-    address indexed newStrategyAddress
+    address indexed previousStrategy,
+    address indexed newStrategy
   );
 
   function addNFT(
@@ -48,13 +48,14 @@ contract RedeemableNFT is Ownable {
     NFT storage nft = nfts[nftId];
     require(nft.pointsToRedeem != 0, "RedeemableNFT#updateNFTStrategy: NFT not found");
 
-    nft.strategy = IRedeemableStrategy(strategy);
-
+    // Gotta emit before changing the address
     emit NFTStrategyUpdated(
       nftId,
       address(nft.strategy),
       strategy
     );
+
+    nft.strategy = IRedeemableStrategy(strategy);
   }
 
   function _increasePoints(address account, uint256 pointsToAdd) internal {

@@ -15,6 +15,11 @@ contract StakeableToken {
   mapping(address => uint256) public _lastUpdateTime;
   IStakeableStrategy public stakeableStrategy;
 
+  event StakeableStrategyUpdated(
+    address indexed previousStakeableStrategy,
+    address indexed newStakeableStrategy
+  );
+
   constructor(address _underlyingAddress, address _stakeableStrategyAddress) public {
     underlying = IERC20(_underlyingAddress);
     stakeableStrategy = IStakeableStrategy(_stakeableStrategyAddress);
@@ -50,6 +55,7 @@ contract StakeableToken {
   }
 
   function _withdrawTo(uint256 amount, address _to) internal virtual updateLastUpdateTime(msg.sender) {
+    require(amount > 0, "Cannot withdraw 0");
     require(_balances[msg.sender] >= amount, "Cannot withdraw more than what's staked.");
     _totalSupply = _totalSupply.sub(amount);
     _balances[msg.sender] = _balances[msg.sender].sub(amount);
@@ -61,6 +67,11 @@ contract StakeableToken {
   }
 
   function _setStakeableStrategy(address _stakeableStrategyAddress) internal {
+    emit StakeableStrategyUpdated(
+      address(stakeableStrategy),
+      _stakeableStrategyAddress
+    );
+
     stakeableStrategy = IStakeableStrategy(_stakeableStrategyAddress);
   }
 }
