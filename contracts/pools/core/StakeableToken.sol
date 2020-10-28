@@ -12,7 +12,7 @@ contract StakeableToken {
 
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
-  mapping(address => uint256) public _lastUpdateTime;
+  mapping(address => uint256) private _lastUpdateTime;
   IStakeableStrategy public stakeableStrategy;
 
   event StakeableStrategyUpdated(
