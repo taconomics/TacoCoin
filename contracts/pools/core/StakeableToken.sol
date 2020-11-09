@@ -50,7 +50,7 @@ contract StakeableToken {
     underlying.transferFrom(msg.sender, address(this), amount);
   }
 
-  function _withdraw(uint256 amount) internal virtual updateLastUpdateTime(msg.sender) {
+  function _withdraw(uint256 amount) internal virtual {
     _withdrawTo(amount, msg.sender);
   }
 
