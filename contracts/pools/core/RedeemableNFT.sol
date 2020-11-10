@@ -2,12 +2,11 @@
 
 pragma solidity ^0.6.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../nfts/core/interfaces/IERC1155Tradable.sol";
 import "../interfaces/IRedeemableStrategy.sol";
 
-contract RedeemableNFT is Ownable {
+contract RedeemableNFT {
   using SafeMath for uint256;
 
   struct NFT {
@@ -19,7 +18,7 @@ contract RedeemableNFT is Ownable {
   mapping(uint256 => NFT) public nfts;
   mapping(address => uint256) public points;
 
-  constructor(address _nftsAddress) public Ownable() {
+  constructor(address _nftsAddress) internal {
     nftsContract = IERC1155Tradable(_nftsAddress);
   }
 
@@ -35,16 +34,19 @@ contract RedeemableNFT is Ownable {
     address indexed newStrategy
   );
 
-  function addNFT(
+  event NFTRedeemed(address indexed user, uint256 amount);
+
+  function _addNFT(
     uint256 nftId,
     uint256 pointsToRedeem,
     address strategy
-  ) public onlyOwner {
+  ) internal {
+    require(nftsContract.exists(nftId), "RedeemableNFT#_addNFT: NFT doesn't exist");
     nfts[nftId] = NFT(IRedeemableStrategy(strategy), pointsToRedeem);
     emit NFTAdded(nftId, pointsToRedeem, strategy);
   }
 
-  function updateNFTStrategy(uint256 nftId, address strategy) public onlyOwner {
+  function _updateNFTStrategy(uint256 nftId, address strategy) internal {
     NFT storage nft = nfts[nftId];
     require(nft.pointsToRedeem != 0, "RedeemableNFT#updateNFTStrategy: NFT not found");
 
@@ -75,6 +77,8 @@ contract RedeemableNFT is Ownable {
 
     points[msg.sender] = points[msg.sender].sub(nft.pointsToRedeem);
     nftsContract.mint(msg.sender, nftId, 1, "");
+
+    emit NFTRedeemed(msg.sender, nft.pointsToRedeem);
   }
 
 }

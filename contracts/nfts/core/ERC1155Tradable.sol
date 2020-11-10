@@ -16,7 +16,7 @@ contract ProxyRegistry {
  * @title ERC1155Tradable
  * ERC1155Tradable - ERC1155 contract that whitelists an operator address, 
  * has create and mint functionality, and supports useful standards from OpenZeppelin,
-  like _exists(), name(), symbol(), and totalSupply()
+  like exists(), name(), symbol(), and totalSupply()
  */
 contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
   address proxyRegistryAddress;
@@ -45,7 +45,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
   }
 
   function uri(uint256 _id) public view override returns (string memory) {
-    require(_exists(_id), "ERC1155Tradable#uri: NONEXISTENT_TOKEN");
+    require(exists(_id), "ERC1155Tradable#uri: NONEXISTENT_TOKEN");
     return super.uri(_id);
   }
 
@@ -136,7 +136,7 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
    * @param _id uint256 ID of the token to query the existence of
    * @return bool whether the token exists
    */
-  function _exists(uint256 _id) internal view returns (bool) {
+  function exists(uint256 _id) public view override returns (bool) {
     return creators[_id] != address(0);
   }
 

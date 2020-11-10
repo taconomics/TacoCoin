@@ -15,12 +15,14 @@ contract StakeableToken {
   mapping(address => uint256) private _lastUpdateTime;
   IStakeableStrategy public stakeableStrategy;
 
+  event StakedTokens(address indexed user, uint256 amount);
+  event WithdrawnTokens(address indexed user, uint256 amount);
   event StakeableStrategyUpdated(
     address indexed previousStakeableStrategy,
     address indexed newStakeableStrategy
   );
 
-  constructor(address _underlyingAddress, address _stakeableStrategyAddress) public {
+  constructor(address _underlyingAddress, address _stakeableStrategyAddress) internal {
     underlying = IERC20(_underlyingAddress);
     stakeableStrategy = IStakeableStrategy(_stakeableStrategyAddress);
   }
@@ -40,26 +42,32 @@ contract StakeableToken {
     return _balances[account];
   }
 
-  function _stake(uint256 amount) internal virtual updateLastUpdateTime(msg.sender) {
+  function _stake(uint256 amount) internal updateLastUpdateTime(msg.sender) {
     require(
       address(stakeableStrategy) == address(0) || stakeableStrategy.canStake(msg.sender),
       "StakeableToken#_stake: Sender doesn't meet the requirements to stake."
     );
+
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
     underlying.transferFrom(msg.sender, address(this), amount);
+
+    emit StakedTokens(msg.sender, amount);
   }
 
-  function _withdraw(uint256 amount) internal virtual {
+  function _withdraw(uint256 amount) internal {
     _withdrawTo(amount, msg.sender);
   }
 
-  function _withdrawTo(uint256 amount, address _to) internal virtual updateLastUpdateTime(msg.sender) {
+  function _withdrawTo(uint256 amount, address _to) internal updateLastUpdateTime(msg.sender) {
     require(amount > 0, "Cannot withdraw 0");
     require(_balances[msg.sender] >= amount, "Cannot withdraw more than what's staked.");
+
     _totalSupply = _totalSupply.sub(amount);
     _balances[msg.sender] = _balances[msg.sender].sub(amount);
     underlying.transfer(_to, amount);
+
+    emit WithdrawnTokens(msg.sender, amount);
   }
 
   function lastUpdateTime(address account) public view returns(uint256) {

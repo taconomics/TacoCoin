@@ -3,17 +3,14 @@
 pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/math/Math.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./StakeableToken.sol";
 import "./RedeemableNFT.sol";
 import "../interfaces/IRedeemableStrategy.sol";
 
-contract NFTStakeablePool is StakeableToken, RedeemableNFT {
+contract NFTStakeablePool is StakeableToken, RedeemableNFT, Ownable {
   uint256 public maximumStake = 10000;
   string public poolName;
-
-  event Staked(address indexed user, uint256 amount);
-  event Withdrawn(address indexed user, uint256 amount);
-  event Redeemed(address indexed user, uint256 amount);
 
   modifier updatePoints(address account) {
     if (account != address(0)) {
@@ -31,6 +28,7 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT {
     public
     RedeemableNFT(_nftsAddress)
     StakeableToken(_underlyingAddress, _stakeableStrategyAddress)
+    Ownable()
   {
     poolName = _poolName;
   }
@@ -61,14 +59,22 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT {
     );
 
     _stake(amount);
-
-    emit Staked(msg.sender, amount);
   }
 
   function withdraw(uint256 amount) public updatePoints(msg.sender) {
     _withdraw(amount);
+  }
 
-    emit Withdrawn(msg.sender, amount);
+  function addNFT(
+    uint256 nftId,
+    uint256 pointsToRedeem,
+    address strategy
+  ) public onlyOwner {
+    _addNFT(nftId, pointsToRedeem, strategy);
+  }
+
+  function updateNFTStrategy(uint256 nftId, address strategy) public onlyOwner {
+    _updateNFTStrategy(nftId, strategy);
   }
 
   function exit() external {
@@ -76,10 +82,6 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT {
   }
 
   function redeem(uint256 nftId) public updatePoints(msg.sender) {
-    NFT storage nft = nfts[nftId];
-
     _redeem(nftId);
-    
-    emit Redeemed(msg.sender, nft.pointsToRedeem);
   }
 }

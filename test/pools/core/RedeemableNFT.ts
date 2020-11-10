@@ -2,172 +2,124 @@ import { ethers } from "@nomiclabs/buidler";
 import { expect } from "chai";
 import { Signer } from "ethers";
 
-import { StakeableTokenWrapperFactory } from '../../../src/types/StakeableTokenWrapperFactory';
-import { StakeableTokenWrapper } from '../../../src/types/StakeableTokenWrapper';
+import { TaconomicsFactory } from '../../../src/types/TaconomicsFactory';
+import { Taconomics } from '../../../src/types/Taconomics';
 
-import { KarmaTokenMockFactory } from "../../../src/types/KarmaTokenMockFactory";
-import { KarmaTokenMock } from "../../../src/types/KarmaTokenMock";
+import { ExposedRedeemableNftFactory } from '../../../src/types/ExposedRedeemableNftFactory';
+import { ExposedRedeemableNft } from '../../../src/types/ExposedRedeemableNft';
 
-describe("StakeableToken", function() {
+import { EvenRedeemStrategyFactory } from '../../../src/types/EvenRedeemStrategyFactory';
+import { EvenRedeemStrategy } from '../../../src/types/EvenRedeemStrategy';
+
+describe("RedeemableNFT", function() {
   let deployer: Signer;
-  let staker: Signer;
-  let stakeableTokenWrapper: StakeableTokenWrapper;
-  let underlyingToken: KarmaTokenMock;
+  let redeemer: Signer;
+  let redeemableNFT: ExposedRedeemableNft;
+  let taconomics: Taconomics;
 
   beforeEach(async function () {
-    [deployer, staker] = await ethers.getSigners();
+    [deployer, redeemer] = await ethers.getSigners();
 
-    const karmaTokenFactory = new KarmaTokenMockFactory(deployer);
-    underlyingToken = await karmaTokenFactory.deploy();
-    await underlyingToken.deployed();
+    taconomics = await (new TaconomicsFactory(deployer)).deploy(
+      "0xa5409ec958c83c3f309868babaca7c86dcb077c1",
+      "https://game.taconomics.io/tacos/",
+      "https://game.taconomics.io/contract/taconomics-erc1155"
+    );
+    await taconomics.deployed();
 
-    const stakeableTokenWrapperFactory = new StakeableTokenWrapperFactory(deployer);
-    stakeableTokenWrapper = await stakeableTokenWrapperFactory.deploy(underlyingToken.address);
+    await taconomics.create(1, 0, "", []);
+
+    redeemableNFT = await (new ExposedRedeemableNftFactory(deployer)).deploy(taconomics.address);
+    await redeemableNFT.deployed();
+
+    await taconomics.addMinter(redeemableNFT.address);
   });
 
-  describe("#stake", function() {
-    it("Cannot stake before approving underlying", async function () {
-      await expect(stakeableTokenWrapper.stake(100))
-        .to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+  describe("addNFT", function () {
+    it("fails to add a new NFT when the NFT does not exists", async function () {
+      await expect(redeemableNFT.addNFT(2, 10000, "0x0000000000000000000000000000000000000000"))
+        .to.be.revertedWith("RedeemableNFT#_addNFT: NFT doesn't exist");
     });
 
-    it("Cannot stake when underlying balance is 0", async function () {
-      await underlyingToken.connect(staker).approve(stakeableTokenWrapper.address, 100);
-      await expect(stakeableTokenWrapper.connect(staker).stake(100))
-        .to.be.revertedWith("ERC20: transfer amount exceeds balance");
+    it("succesfully adds a new NFT when the NFT exists", async function () {
+      await redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
+      expect((await redeemableNFT.nfts(1)).pointsToRedeem).to.equal(10000);
     });
 
-    it("Can stake, after approval and with enough balance", async function () {
-      const stakerAddress = await staker.getAddress();
-      await underlyingToken.transfer(stakerAddress, 100);
-      await underlyingToken.connect(staker).approve(stakeableTokenWrapper.address, 100);
-      await stakeableTokenWrapper.connect(staker).stake(100);
+    it("emits NFTAdded event", async function () {
+      await expect(redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000"))
+        .to.emit(redeemableNFT, 'NFTAdded').withArgs(1, 10000, "0x0000000000000000000000000000000000000000");
+    });
+  });
 
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(100);
+  describe("updateNFTStrategy", function () {
+    it("cannot update strategy of non redeemable NFT", async function () {
+      await expect(redeemableNFT.updateNFTStrategy(1, "0x0000000000000000000000000000000000000001"))
+        .to.be.revertedWith("RedeemableNFT#updateNFTStrategy: NFT not found");
     });
 
-    it("contract balance of underlying has the total staked balance", async function () {
-      const stakerAddress = await staker.getAddress();
-      await underlyingToken.transfer(stakerAddress, 100);
-      await underlyingToken.connect(staker).approve(stakeableTokenWrapper.address, 100);
-      await stakeableTokenWrapper.connect(staker).stake(100);
+    it("succesfully updates strategy of NFT and emits event", async function () {
+      await redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
+      expect((await redeemableNFT.nfts(1)).strategy).to.equal("0x0000000000000000000000000000000000000000");
 
-      expect(await stakeableTokenWrapper.balanceOf(stakerAddress)).to.equal(100);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(100);
+      await expect(redeemableNFT.updateNFTStrategy(1, "0x0000000000000000000000000000000000000001"))
+        .to.emit(redeemableNFT, 'NFTStrategyUpdated')
+        .withArgs(1, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000001");
 
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
+      expect((await redeemableNFT.nfts(1)).strategy).to.equal("0x0000000000000000000000000000000000000001");
+    });
+  });
+
+  describe("redeem", function () {
+    it("cannot redeem a non existant NFT", async function () {
+      await expect(redeemableNFT.redeem(1)).to.be.revertedWith("RedeemableNFT#_redeem: NFT not found");
+    });
+
+    it("cannot redeem when user doesn't have enough points", async function () {
+      await redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
+      await expect(redeemableNFT.redeem(1))
+        .to.be.revertedWith("RedeemableNFT#_redeem: Not enough points to redeem for NFT");
+    });
+
+    it("cannot redeem when all nfts have been minted", async function () {
+      await taconomics.mint("0x0000000000000000000000000000000000000001", 1, 100, []);
+      await redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
 
       const deployerAddress = await deployer.getAddress();
+      await redeemableNFT.increasePoints(deployerAddress, 10001);
 
-      expect(await stakeableTokenWrapper.balanceOf(deployerAddress)).to.equal(120);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(220);
-    });
-  });
-
-  describe("#withdraw", function() {
-    it("cannot withdraw when nothing is staked", async function() {
-      await expect(stakeableTokenWrapper.withdraw(100))
-        .to.be.revertedWith("Cannot withdraw more than what's staked.");
+      await expect(redeemableNFT.redeem(1))
+        .to.be.revertedWith("RedeemableNFT#_redeem: Max NFTs minted");
     });
 
-    it("can withdraw exactly the same amount that was staked", async function() {
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
+    it("cannot redeem when strategy doesn't allow it", async function () {
+      const redeemStrategy = await (new EvenRedeemStrategyFactory(deployer)).deploy();
+      await redeemStrategy.deployed();
+      await redeemableNFT.addNFT(1, 10000, redeemStrategy.address);
 
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(120);
+      const deployerAddress = await deployer.getAddress();
+      await redeemableNFT.increasePoints(deployerAddress, 10001);
 
-      await stakeableTokenWrapper.withdraw(120);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(0);
+      await expect(redeemableNFT.redeem(1))
+        .to.be.revertedWith("RedeemableNFT#_redeem: Sender doesn't meet the requirements to mint.");
     });
 
-    it("can withdraw less than what was staked", async function() {
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
+    it("can redeem when everything allows it and emits event", async function () {
+      await taconomics.create(2, 0, "", []);
 
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(120);
+      const redeemStrategy = await (new EvenRedeemStrategyFactory(deployer)).deploy();
+      await redeemStrategy.deployed();
+      await redeemableNFT.addNFT(1, 10000, redeemStrategy.address);
+      await redeemableNFT.addNFT(2, 10000, redeemStrategy.address);
 
-      await stakeableTokenWrapper.withdraw(60);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(60);
-    });
+      const deployerAddress = await deployer.getAddress();
+      await redeemableNFT.increasePoints(deployerAddress, 10001);
 
-    it("cannot withdraw more than what was staked", async function() {
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
+      await expect(redeemableNFT.redeem(2))
+        .to.emit(redeemableNFT, 'NFTRedeemed')
+        .withArgs(deployerAddress, 10000);
 
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(120);
-
-      await expect(stakeableTokenWrapper.withdraw(200))
-        .to.be.revertedWith("Cannot withdraw more than what's staked.");
-    });
-  });
-
-  describe("#balanceOf", function() {
-    let stakerAddress: string;
-    let deployerAddress: string;
-
-    beforeEach(async function() {
-      stakerAddress = await staker.getAddress();
-      deployerAddress = await deployer.getAddress();
-    });
-
-    it("is 0 for every new address", async function() {
-      expect(await stakeableTokenWrapper.balanceOf(stakerAddress)).to.equal(0);
-      expect(await stakeableTokenWrapper.balanceOf(deployerAddress)).to.equal(0);
-    });
-
-    it("balance can be validated after staking", async function () {
-      await underlyingToken.transfer(stakerAddress, 100);
-      await underlyingToken.connect(staker).approve(stakeableTokenWrapper.address, 100);
-      await stakeableTokenWrapper.connect(staker).stake(100);
-
-      expect(await stakeableTokenWrapper.balanceOf(stakerAddress)).to.equal(100);
-    });
-
-    it("balance is correct for different addresses", async function () {
-      await underlyingToken.transfer(stakerAddress, 100);
-      await underlyingToken.connect(staker).approve(stakeableTokenWrapper.address, 100);
-      await stakeableTokenWrapper.connect(staker).stake(100);
-
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
-
-      expect(await stakeableTokenWrapper.balanceOf(stakerAddress)).to.equal(100);
-      expect(await stakeableTokenWrapper.balanceOf(deployerAddress)).to.equal(120);
-    });
-  });
-
-  describe("#totalSupply", function() {
-    it("is 0 when nobody has staked", async function() {
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(0);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(0);
-    });
-
-    it("increases when underlying is staked", async function() {
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(0);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(0);
-
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
-
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(120);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(120);
-    });
-
-    it("decreases after withdrawal", async function() {
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(0);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(0);
-
-      await underlyingToken.approve(stakeableTokenWrapper.address, 120);
-      await stakeableTokenWrapper.stake(120);
-
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(120);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(120);
-
-      await stakeableTokenWrapper.withdraw(30);
-
-      expect(await stakeableTokenWrapper.totalSupply()).to.equal(90);
-      expect(await underlyingToken.balanceOf(stakeableTokenWrapper.address)).to.equal(90);
+      expect(await redeemableNFT.points(deployerAddress)).to.equal(1);
     });
   });
 });

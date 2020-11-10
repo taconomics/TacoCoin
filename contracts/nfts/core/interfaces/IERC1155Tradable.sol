@@ -24,4 +24,6 @@ abstract contract IERC1155Tradable {
     uint256 _quantity,
     bytes calldata _data
   ) external virtual;
+
+  function exists(uint256 _id) public view virtual returns (bool);
 }
