@@ -8,5 +8,5 @@ import { StakeableTokenWrapper } from '../../../src/types/StakeableTokenWrapper'
 import { KarmaTokenMockFactory } from "../../../src/types/KarmaTokenMockFactory";
 import { KarmaTokenMock } from "../../../src/types/KarmaTokenMock";
 
-describe("StakeableToken", function() {
+describe("NFTStakeablePool", function() {
 });

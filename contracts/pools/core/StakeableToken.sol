@@ -13,6 +13,7 @@ contract StakeableToken {
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
   mapping(address => uint256) private _lastUpdateTime;
+  address[] public stakers;
   IStakeableStrategy public stakeableStrategy;
 
   event StakedTokens(address indexed user, uint256 amount);
@@ -42,11 +43,19 @@ contract StakeableToken {
     return _balances[account];
   }
 
+  function getStakers() public view returns(address[] memory) {
+        return stakers;
+    }
+
   function _stake(uint256 amount) internal updateLastUpdateTime(msg.sender) {
     require(
       address(stakeableStrategy) == address(0) || stakeableStrategy.canStake(msg.sender),
       "StakeableToken#_stake: Sender doesn't meet the requirements to stake."
     );
+
+    if (_balances[msg.sender] == 0) {
+      stakers.push(msg.sender);
+    }
 
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
