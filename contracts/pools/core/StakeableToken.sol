@@ -44,8 +44,8 @@ contract StakeableToken {
   }
 
   function getStakers() public view returns(address[] memory) {
-        return stakers;
-    }
+    return stakers;
+  }
 
   function _stake(uint256 amount) internal updateLastUpdateTime(msg.sender) {
     require(
