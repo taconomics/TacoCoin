@@ -13,6 +13,7 @@ contract StakeableToken {
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
   mapping(address => uint256) private _lastUpdateTime;
+  mapping(address => uint256) internal _firstStakeTime;
   address[] public stakers;
   IStakeableStrategy public stakeableStrategy;
 
@@ -53,8 +54,9 @@ contract StakeableToken {
       "StakeableToken#_stake: Sender doesn't meet the requirements to stake."
     );
 
-    if (_balances[msg.sender] == 0) {
+    if (_firstStakeTime[msg.sender] == 0) {
       stakers.push(msg.sender);
+      _firstStakeTime[msg.sender] = now;
     }
 
     _totalSupply = _totalSupply.add(amount);

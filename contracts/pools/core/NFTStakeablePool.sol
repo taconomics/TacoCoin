@@ -3,12 +3,12 @@
 pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/math/Math.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../../util/TokenRecover.sol";
 import "./StakeableToken.sol";
 import "./RedeemableNFT.sol";
 import "../interfaces/IRedeemableStrategy.sol";
 
-contract NFTStakeablePool is StakeableToken, RedeemableNFT, Ownable {
+contract NFTStakeablePool is StakeableToken, RedeemableNFT, TokenRecover {
   uint256 public maximumStake = 10000;
   string public poolName;
 
@@ -28,7 +28,7 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, Ownable {
     public
     RedeemableNFT(_nftsAddress)
     StakeableToken(_underlyingAddress, _stakeableStrategyAddress)
-    Ownable()
+    TokenRecover()
   {
     poolName = _poolName;
   }
@@ -62,10 +62,12 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, Ownable {
    */
 
   function _newlyEarnedPoints(address account) private view returns (uint256) {
-    return now.sub(lastUpdateTime(account))
-      .mul(1e18)
-      .div(86400)
-      .mul(balanceOf(account).div(1e8));
+    // 1 point per day per staked token
+    return now.sub(lastUpdateTime(account)) // Time since last update
+      .mul(1e18) // how many points 
+      .div(86400) // per day
+      .mul(balanceOf(account)) // per balance
+      .div(1e18); // normalize
   }
 
   function earnedPoints(address account) public view returns (uint256) {
@@ -78,8 +80,8 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, Ownable {
 
   function stake(uint256 amount) public updatePoints(msg.sender) {
     require(
-      amount.add(balanceOf(msg.sender)) <= maximumStake,
-      "Cannot stake more tokens"
+      amount.add(balanceOf(msg.sender)) <= maximumStake.mul(1e18),
+      "NFTStakeablePool#stake: Cannot stake more tokens"
     );
 
     _stake(amount);
