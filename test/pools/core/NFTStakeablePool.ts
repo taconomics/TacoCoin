@@ -1,4 +1,4 @@
-import { ethers } from "@nomiclabs/buidler";
+import { ethers, network } from "@nomiclabs/buidler";
 import { expect } from "chai";
 import { Signer } from "ethers";
 
@@ -16,6 +16,7 @@ import { EvenRedeemStrategyFactory } from '../../../src/types/EvenRedeemStrategy
 
 describe("NFTStakeablePool", function() {
   let deployer: Signer;
+  let deployerAddress: string;
   let redeemer: Signer;
   let nftStakeablePool: NftStakeablePool;
   let taconomics: Taconomics;
@@ -24,6 +25,8 @@ describe("NFTStakeablePool", function() {
 
   beforeEach(async function () {
     [deployer, staker, redeemer] = await ethers.getSigners();
+
+    deployerAddress = await deployer.getAddress();
 
     const karmaTokenFactory = new KarmaTokenMockFactory(deployer);
     underlyingToken = await karmaTokenFactory.deploy();
@@ -35,7 +38,7 @@ describe("NFTStakeablePool", function() {
       "https://localhost:3000/contract/taconomics-erc1155"
     );
     await taconomics.deployed();
-    await taconomics.create(1, 0, "", []);
+    await taconomics.create(1, 0, []);
 
     nftStakeablePool = await (new NftStakeablePoolFactory(deployer)).deploy(
       "Test Pool",
@@ -81,8 +84,6 @@ describe("NFTStakeablePool", function() {
       await underlyingToken.approve(nftStakeablePool.address, 120);
       await nftStakeablePool.stake(120);
 
-      const deployerAddress = await deployer.getAddress();
-
       expect(await nftStakeablePool.balanceOf(deployerAddress)).to.equal(120);
       expect(await underlyingToken.balanceOf(nftStakeablePool.address)).to.equal(220);
     });
@@ -97,17 +98,64 @@ describe("NFTStakeablePool", function() {
       expect(await nftStakeablePool.lastUpdateTime(stakerAddress)).not.to.equal(0);
     });
 
-    // it("cannot stake when strategy returns false", async function () {
-    //   const neverStakeStrategy = await (new NeverStakeStrategyFactory(deployer)).deploy();
-    //   const stakerAddress = await staker.getAddress();
-    //   await nftStakeablePool.setStakeableStrategy(neverStakeStrategy.address);
+    it("cannot stake when strategy returns false", async function () {
+      const neverStakeStrategy = await (new NeverStakeStrategyFactory(deployer)).deploy();
+      const stakerAddress = await staker.getAddress();
+      await nftStakeablePool.setStakeableStrategy(neverStakeStrategy.address);
 
-    //   await underlyingToken.transfer(stakerAddress, 100);
-    //   await underlyingToken.connect(staker).approve(nftStakeablePool.address, 100);
+      await underlyingToken.transfer(stakerAddress, 100);
+      await underlyingToken.connect(staker).approve(nftStakeablePool.address, 100);
 
-    //   await expect(nftStakeablePool.connect(staker).stake(100))
-    //     .to.be.revertedWith("StakeableToken#_stake: Sender doesn't meet the requirements to stake.");
-    // });
+      await expect(nftStakeablePool.connect(staker).stake(100))
+        .to.be.revertedWith("StakeableToken#_stake: Sender doesn't meet the requirements to stake.");
+    });
+  });
+
+  describe("#earnedPoints", function() {
+    let stakerAddress: string;
+    beforeEach(async function() {
+      stakerAddress = await staker.getAddress();
+      await underlyingToken.transfer(stakerAddress, 50000);
+      await underlyingToken.connect(staker).approve(nftStakeablePool.address, 9999999);
+      await nftStakeablePool.connect(staker).stake(10000);
+    });
+
+    it("starts with 0 points", async function() {
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(0);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(0);
+    });
+
+    it("generates as many points as staked balance per day", async function() {
+      await network.provider.send("evm_increaseTime", [86400]);
+      await network.provider.send("evm_mine");
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(10000);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(0);
+    });
+
+    it("generates half the points in half the day", async function() {
+      await network.provider.send("evm_increaseTime", [86400/2]);
+      await network.provider.send("evm_mine");
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(5000);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(0);
+    });
+
+    it("generates as many points as staked balance per day, even after staking more", async function() {
+      await network.provider.send("evm_increaseTime", [86400]);
+      await nftStakeablePool.connect(staker).stake(10000);
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(10000);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(10000);
+    });
+
+    it("uses new balance for subsequent earned points", async function() {
+      await network.provider.send("evm_increaseTime", [86400]);
+      await nftStakeablePool.connect(staker).stake(10000);
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(10000);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(10000);
+      await network.provider.send("evm_increaseTime", [86400]);
+      await network.provider.send("evm_mine");
+      expect(await nftStakeablePool.earnedPoints(stakerAddress)).to.equal(30000);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(10000);
+    });
   });
 
   describe("#withdraw", function() {
@@ -147,7 +195,6 @@ describe("NFTStakeablePool", function() {
     });
 
     it("succesfully updates lastUpdateTime", async function () {
-      const deployerAddress = await deployer.getAddress();
       await underlyingToken.approve(nftStakeablePool.address, 120);
 
       expect(await nftStakeablePool.lastUpdateTime(deployerAddress)).to.equal(0);
@@ -164,11 +211,9 @@ describe("NFTStakeablePool", function() {
 
   describe("#balanceOf", function() {
     let stakerAddress: string;
-    let deployerAddress: string;
 
     beforeEach(async function() {
       stakerAddress = await staker.getAddress();
-      deployerAddress = await deployer.getAddress();
     });
 
     it("is 0 for every new address", async function() {
@@ -234,7 +279,7 @@ describe("NFTStakeablePool", function() {
   describe("addNFT", function () {
     it("fails to add a new NFT when the NFT does not exists", async function () {
       await expect(nftStakeablePool.addNFT(2, 10000, "0x0000000000000000000000000000000000000000"))
-        .to.be.revertedWith("nftStakeablePool#_addNFT: NFT doesn't exist");
+        .to.be.revertedWith("RedeemableNFT#_addNFT: NFT doesn't exist");
     });
 
     it("succesfully adds a new NFT when the NFT exists", async function () {
@@ -244,14 +289,14 @@ describe("NFTStakeablePool", function() {
 
     it("emits NFTAdded event", async function () {
       await expect(nftStakeablePool.addNFT(1, 10000, "0x0000000000000000000000000000000000000000"))
-        .to.emit(nftStakeablePool, 'NFTAdded').withArgs(1, 10000, "0x0000000000000000000000000000000000000000");
+        .to.emit(nftStakeablePool, 'NFTAdded').withArgs(1, 10000, "0x0000000000000000000000000000000000000000", deployerAddress);
     });
   });
 
   describe("updateNFTStrategy", function () {
     it("cannot update strategy of non redeemable NFT", async function () {
       await expect(nftStakeablePool.updateNFTStrategy(1, "0x0000000000000000000000000000000000000001"))
-        .to.be.revertedWith("nftStakeablePool#updateNFTStrategy: NFT not found");
+        .to.be.revertedWith("RedeemableNFT#updateNFTStrategy: NFT not found");
     });
 
     it("succesfully updates strategy of NFT and emits event", async function () {
@@ -267,25 +312,33 @@ describe("NFTStakeablePool", function() {
   });
 
   describe("redeem", function () {
+    let stakerAddress: string;
+    beforeEach(async function () {
+      stakerAddress = await staker.getAddress();
+      await underlyingToken.transfer(stakerAddress, 50000);
+      await underlyingToken.connect(staker).approve(nftStakeablePool.address, 9999999);
+      await nftStakeablePool.connect(staker).stake(10000);
+    });
+
     it("cannot redeem a non existant NFT", async function () {
-      await expect(nftStakeablePool.redeem(1)).to.be.revertedWith("nftStakeablePool#_redeem: NFT not found");
+      await expect(nftStakeablePool.redeem(1)).to.be.revertedWith("RedeemableNFT#_redeem: NFT not found");
     });
 
     it("cannot redeem when user doesn't have enough points", async function () {
       await nftStakeablePool.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
       await expect(nftStakeablePool.redeem(1))
-        .to.be.revertedWith("nftStakeablePool#_redeem: Not enough points to redeem for NFT");
+        .to.be.revertedWith("RedeemableNFT#_redeem: Not enough points to redeem for NFT");
     });
 
     it("cannot redeem when all nfts have been minted", async function () {
       await taconomics.mint("0x0000000000000000000000000000000000000001", 1, 100, []);
       await nftStakeablePool.addNFT(1, 10000, "0x0000000000000000000000000000000000000000");
 
-      const deployerAddress = await deployer.getAddress();
-      await nftStakeablePool.increasePoints(deployerAddress, 10001);
+      await network.provider.send("evm_increaseTime", [86409]);
+      await network.provider.send("evm_mine");
 
-      await expect(nftStakeablePool.redeem(1))
-        .to.be.revertedWith("nftStakeablePool#_redeem: Max NFTs minted");
+      await expect(nftStakeablePool.connect(staker).redeem(1))
+        .to.be.revertedWith("RedeemableNFT#_redeem: Max NFTs minted");
     });
 
     it("cannot redeem when strategy doesn't allow it", async function () {
@@ -293,29 +346,29 @@ describe("NFTStakeablePool", function() {
       await redeemStrategy.deployed();
       await nftStakeablePool.addNFT(1, 10000, redeemStrategy.address);
 
-      const deployerAddress = await deployer.getAddress();
-      await nftStakeablePool.increasePoints(deployerAddress, 10001);
+      await network.provider.send("evm_increaseTime", [86409]);
+      await network.provider.send("evm_mine");
 
-      await expect(nftStakeablePool.redeem(1))
-        .to.be.revertedWith("nftStakeablePool#_redeem: Sender doesn't meet the requirements to mint.");
+      await expect(nftStakeablePool.connect(staker).redeem(1))
+        .to.be.revertedWith("RedeemableNFT#_redeem: Sender doesn't meet the requirements to mint.");
     });
 
     it("can redeem when everything allows it and emits event", async function () {
-      await taconomics.create(2, 0, "", []);
+      await taconomics.create(2, 0, []);
 
       const redeemStrategy = await (new EvenRedeemStrategyFactory(deployer)).deploy();
       await redeemStrategy.deployed();
       await nftStakeablePool.addNFT(1, 10000, redeemStrategy.address);
       await nftStakeablePool.addNFT(2, 10000, redeemStrategy.address);
 
-      const deployerAddress = await deployer.getAddress();
-      await nftStakeablePool.increasePoints(deployerAddress, 10001);
+      await network.provider.send("evm_increaseTime", [86409]);
+      await network.provider.send("evm_mine");
 
-      await expect(nftStakeablePool.redeem(2))
+      await expect(nftStakeablePool.connect(staker).redeem(2))
         .to.emit(nftStakeablePool, 'NFTRedeemed')
-        .withArgs(deployerAddress, 10000);
+        .withArgs(stakerAddress, 10000);
 
-      expect(await nftStakeablePool.points(deployerAddress)).to.equal(1);
+      expect(await nftStakeablePool.points(stakerAddress)).to.equal(1);
     });
   });
 

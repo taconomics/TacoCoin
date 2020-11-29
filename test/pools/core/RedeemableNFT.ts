@@ -13,12 +13,15 @@ import { EvenRedeemStrategy } from '../../../src/types/EvenRedeemStrategy';
 
 describe("RedeemableNFT", function() {
   let deployer: Signer;
+  let deployerAddress: string;
   let redeemer: Signer;
   let redeemableNFT: ExposedRedeemableNft;
   let taconomics: Taconomics;
 
   beforeEach(async function () {
     [deployer, redeemer] = await ethers.getSigners();
+
+    deployerAddress = await deployer.getAddress();
 
     taconomics = await (new TaconomicsFactory(deployer)).deploy(
       "0xa5409ec958c83c3f309868babaca7c86dcb077c1",
@@ -27,7 +30,7 @@ describe("RedeemableNFT", function() {
     );
     await taconomics.deployed();
 
-    await taconomics.create(1, 0, "", []);
+    await taconomics.create(1, 0, []);
 
     redeemableNFT = await (new ExposedRedeemableNftFactory(deployer)).deploy(taconomics.address);
     await redeemableNFT.deployed();
@@ -48,7 +51,7 @@ describe("RedeemableNFT", function() {
 
     it("emits NFTAdded event", async function () {
       await expect(redeemableNFT.addNFT(1, 10000, "0x0000000000000000000000000000000000000000"))
-        .to.emit(redeemableNFT, 'NFTAdded').withArgs(1, 10000, "0x0000000000000000000000000000000000000000");
+        .to.emit(redeemableNFT, 'NFTAdded').withArgs(1, 10000, "0x0000000000000000000000000000000000000000", deployerAddress);
     });
   });
 
@@ -105,7 +108,7 @@ describe("RedeemableNFT", function() {
     });
 
     it("can redeem when everything allows it and emits event", async function () {
-      await taconomics.create(2, 0, "", []);
+      await taconomics.create(2, 0, []);
 
       const redeemStrategy = await (new EvenRedeemStrategyFactory(deployer)).deploy();
       await redeemStrategy.deployed();

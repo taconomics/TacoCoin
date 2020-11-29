@@ -41,8 +41,8 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, TokenRecover {
     maximumStake = _stakeSize;
   }
 
-  function setStakeableStrategyAddress(address _stakeableStrategyAddress) public onlyOwner {
-    _setStakeableStrategy(_stakeableStrategyAddress);
+  function setStakeableStrategy(address _stakeableStrategy) public onlyOwner {
+    _setStakeableStrategy(_stakeableStrategy);
   }
 
   function addNFT(
@@ -65,8 +65,8 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, TokenRecover {
     // 1 point per day per staked token
     return now.sub(lastUpdateTime(account)) // Time since last update
       .mul(1e18) // how many points 
-      .div(86400) // per day
       .mul(balanceOf(account)) // per balance
+      .div(86400) // per day
       .div(1e18); // normalize
   }
 
