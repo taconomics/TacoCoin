@@ -31,6 +31,7 @@ contract NFTStakeablePool is StakeableToken, RedeemableNFT, TokenRecover {
     TokenRecover()
   {
     poolName = _poolName;
+    _denyToken(_underlyingAddress);
   }
 
   /**
