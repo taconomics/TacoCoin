@@ -12,6 +12,7 @@ contract RedeemableNFT {
   struct NFT {
     IRedeemableStrategy strategy;
     uint256 pointsToRedeem;
+    address creator;
   }
 
   IERC1155Tradable public nftsContract;
@@ -25,7 +26,8 @@ contract RedeemableNFT {
   event NFTAdded(
     uint256 indexed nftId,
     uint256 indexed pointsToRedeem,
-    address indexed strategyAddress
+    address indexed strategyAddress,
+    address creator
   );
 
   event NFTStrategyUpdated(
@@ -42,8 +44,8 @@ contract RedeemableNFT {
     address strategy
   ) internal {
     require(nftsContract.exists(nftId), "RedeemableNFT#_addNFT: NFT doesn't exist");
-    nfts[nftId] = NFT(IRedeemableStrategy(strategy), pointsToRedeem);
-    emit NFTAdded(nftId, pointsToRedeem, strategy);
+    nfts[nftId] = NFT(IRedeemableStrategy(strategy), pointsToRedeem, msg.sender);
+    emit NFTAdded(nftId, pointsToRedeem, strategy, msg.sender);
   }
 
   function _updateNFTStrategy(uint256 nftId, address strategy) internal {

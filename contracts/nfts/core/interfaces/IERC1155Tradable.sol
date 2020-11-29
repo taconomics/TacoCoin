@@ -14,7 +14,6 @@ abstract contract IERC1155Tradable {
   function create(
     uint256 _maxSupply,
     uint256 _initialSupply,
-    string calldata _uri,
     bytes calldata _data
   ) external virtual returns (uint256 tokenId);
 

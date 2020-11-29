@@ -35,6 +35,9 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
     // [Onchained]: Used as the base URI for tokens, ID will be interpolated upon read.
     string private _uri;
 
+    // [Onchained]: Indicates if we use id substitution or interpolated id
+    bool private _useUriIdSubstitution = false;
+
     /*
      *     bytes4(keccak256('balanceOf(address,uint256)')) == 0x00fdd58e
      *     bytes4(keccak256('balanceOfBatch(address[],uint256[])')) == 0x4e1273f4
@@ -73,7 +76,11 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      *              Changed visibility to public, to allow override.
      */
     function uri(uint256 _id) public view override virtual returns (string memory) {
-        return Strings.strConcat(_uri, Strings.uint2str(_id));
+        if (_useUriIdSubstitution) {
+            return Strings.strConcat(_uri, "{id}");
+        } else {
+            return Strings.strConcat(_uri, Strings.uint2str(_id));
+        }
     }
 
     /**
@@ -211,6 +218,13 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      */
     function _setURI(string memory newuri) internal virtual {
         _uri = newuri;
+    }
+
+    /**
+     * @dev Sets the option for using id substituion or interpolated.
+     */
+    function _setUseUriIdSubstitution(bool useSubstitution) internal {
+        _useUriIdSubstitution = useSubstitution;
     }
 
     /**

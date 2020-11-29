@@ -58,6 +58,14 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
   }
 
   /**
+   * @dev Will update the usage of ID Substitution or Interpolation
+   * @param _useIdSubstitution Indicates if we should use Substitution instead of interpolation
+   */
+  function setUseUriIdSubstitution(bool _useIdSubstitution) public onlyAdmin {
+    _setUseUriIdSubstitution(_useIdSubstitution);
+  }
+
+  /**
    * @dev Returns the total quantity for a token ID
    * @param _id uint256 ID of the token to query
    * @return amount of token in existence
@@ -79,14 +87,12 @@ contract ERC1155Tradable is ERC1155, IERC1155Tradable, OwnableAndRoles {
    * @dev Creates a new token type and assigns _initialSupply to an address
    * @param _maxSupply max supply allowed
    * @param _initialSupply Optional amount to supply the first owner
-   * @param _uri This params doesn't do anything
    * @param _data Optional data to pass if receiver is contract
    * @return tokenId The newly created token ID
    */
   function create(
     uint256 _maxSupply,
     uint256 _initialSupply,
-    string calldata _uri,
     bytes calldata _data
   ) external override onlyCreator returns (uint256 tokenId) {
     require(_initialSupply <= _maxSupply, "ERC1155Tradable#create: Initial supply cannot be more than max supply");
